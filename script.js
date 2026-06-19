@@ -254,6 +254,19 @@ function stopFirestoreListeners() {
     if (unsubCustomers) { unsubCustomers(); unsubCustomers = null; }
 }
 
+function sendWhatsAppMessage(phone, text) {
+    if (!phone) return;
+    let formattedPhone = phone;
+    // تنظيف الرقم من المسافات
+    formattedPhone = formattedPhone.replace(/\D/g, '');
+    // إضافة كود العراق للضمان في حال ادخال الرقم بصيغة 07
+    if (formattedPhone.startsWith('07')) {
+        formattedPhone = '964' + formattedPhone.substring(1);
+    }
+    let url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+}
+
 window.loginWithGoogle = function() {
     setPersistence(auth, browserLocalPersistence).then(() => {
         const provider = new GoogleAuthProvider();
@@ -430,9 +443,12 @@ window.switchCustomerTab = function(tab) {
     if(tab === 'all') {
         document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
         document.getElementById('all-customers-tab').classList.add('active');
-    } else {
+    } else if (tab === 'expired') {
         document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
         document.getElementById('expired-customers-tab').classList.add('active');
+    } else if (tab === 'pdf') {
+        document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
+        document.getElementById('pdf-customers-tab').classList.add('active');
     }
 }
 
@@ -453,6 +469,7 @@ window.toggleAddForm = function() {
 
 window.resetForm = function() {
     document.getElementById('customerName').value = "";
+    document.getElementById('customerPhone').value = "";
     document.getElementById('customerPrice').value = "";
     document.getElementById('startDate').value = "";
     document.getElementById('endDate').value = "";
@@ -462,6 +479,7 @@ window.resetForm = function() {
 
 window.addCustomer = async function() {
     let name = document.getElementById('customerName').value;
+    let phone = document.getElementById('customerPhone').value;
     let price = document.getElementById('customerPrice').value;
     let startDateInput = document.getElementById('startDate').value;
 
@@ -489,6 +507,7 @@ window.addCustomer = async function() {
             id: Date.now(),
             towerCode: currentLoggedTowerCode,
             name: name,
+            phone: phone,
             price: price,
             startDate: finalStartDate,
             endDate: finalEndDate,
@@ -505,6 +524,7 @@ window.addCustomer = async function() {
         for (let i = 0; i < allCustomersData.length; i++) {
             if (allCustomersData[i].id === editCustomerId) {
                 allCustomersData[i].name = name;
+                allCustomersData[i].phone = phone;
                 allCustomersData[i].price = price;
                 
                 let oldStartDateStr = allCustomersData[i].startDate ? allCustomersData[i].startDate.split('T')[0] : "";
@@ -685,7 +705,7 @@ window.renderCustomers = function() {
             <div class="customer-header">
                 <div class="customer-name-wrap">
                     <span>${customer.name}</span>
-                    <span class="customer-debt-inline">الدين: ${currentDebt} دينار</span>
+                    <span class="customer-debt-inline">الدين: ${currentDebt} الف</span>
                 </div>
                 <span style="font-size: 0.9rem; color: ${isExpired ? '#e74c3c' : '#27ae60'}">${remainingText}</span>
             </div>
@@ -698,7 +718,7 @@ window.renderCustomers = function() {
                     </div>
                 </div>
                 <div class="customer-info">
-                    <p><strong>الدين:</strong> <span style="color:#e74c3c; font-weight:bold;">${currentDebt} دينار</span></p>
+                    <p><strong>الدين:</strong> <span style="color:#e74c3c; font-weight:bold;">${currentDebt} الف</span></p>
                     <p><strong>تاريخ البدء:</strong> ${displayStartDate}</p>
                     <p><strong>تاريخ الانتهاء:</strong> ${displayEndDate}</p>
                 </div>
@@ -748,9 +768,24 @@ window.paySubscription = function(id) {
             
             await saveOperationToQueue('edit', id, customer);
             await localforage.setItem('cachedCustomers', allCustomersData);
-            window.showModal("تم التسديد بنجاح!", "alert");
             window.renderCustomers();
             if (navigator.onLine) processSyncQueue();
+
+            if (customer.phone) {
+                let displayStartDate = formatDateTimeUI(customer.startDate);
+                let displayEndDate = formatDateTimeUI(customer.endDate);
+                let originalPrice = parseFloat(customer.price || 0) + parseFloat(customer.debts || 0);
+                let remaining = originalPrice - (customer.paid || 0);
+                let currentDebt = Math.max(remaining, 0);
+                
+                let msg = `تم تسديد مبلغ: ${amount} الف\nالباقي: ${currentDebt} الف\nتاريخ بدء الاشتراك: ${displayStartDate}\nتاريخ انتهاء الاشتراك: ${displayEndDate}`;
+                
+                window.showModal("تم التسديد بنجاح! هل تود إرسال إشعار للزبون عبر الواتساب؟", "confirm", () => {
+                    sendWhatsAppMessage(customer.phone, msg);
+                });
+            } else {
+                window.showModal("تم التسديد بنجاح!", "alert");
+            }
         }
     });
 }
@@ -777,9 +812,21 @@ window.renewSubscription = function(id) {
             
             await saveOperationToQueue('edit', id, customer);
             await localforage.setItem('cachedCustomers', allCustomersData);
-            window.showModal("تم تجديد الاشتراك بنجاح!", "alert");
             window.renderCustomers();
             if (navigator.onLine) processSyncQueue();
+
+            if (customer.phone) {
+                let displayStartDate = formatDateTimeUI(customer.startDate);
+                let displayEndDate = formatDateTimeUI(customer.endDate);
+                
+                let msg = `تم تجديد الاشتراك بنجاح\nالحساب (المبلغ المضاف): ${amount} الف\nتاريخ بدء الاشتراك: ${displayStartDate}\nتاريخ انتهاء الاشتراك: ${displayEndDate}`;
+                
+                window.showModal("تم تجديد الاشتراك بنجاح! هل تود إرسال إشعار للزبون عبر الواتساب؟", "confirm", () => {
+                    sendWhatsAppMessage(customer.phone, msg);
+                });
+            } else {
+                window.showModal("تم تجديد الاشتراك بنجاح!", "alert");
+            }
         }
     });
 }
@@ -834,7 +881,7 @@ window.showHistory = function(id) {
         if (historyArr.length === 0) {
             historyHTML = "<p style='text-align:center; color:#7f8c8d;'>لا يوجد سجل متاح.</p>";
         } else {
-            historyHTML = historyArr.map(h => `<div class='history-item'><strong>${h.date}:</strong> ${h.action} ${h.amount !== "" ? '(' + h.amount + ' دينار)' : ''}</div>`).join('');
+            historyHTML = historyArr.map(h => `<div class='history-item'><strong>${h.date}:</strong> ${h.action} ${h.amount !== "" ? '(' + h.amount + ' الف)' : ''}</div>`).join('');
         }
         document.getElementById('historyContent').innerHTML = historyHTML;
         document.getElementById('historyModal').style.display = 'flex';
@@ -845,6 +892,7 @@ window.editCustomer = function(id) {
     let customer = allCustomersData.find(c => c.id === id);
     if (customer) {
         document.getElementById('customerName').value = customer.name;
+        document.getElementById('customerPhone').value = customer.phone || "";
         document.getElementById('customerPrice').value = customer.price;
         document.getElementById('startDate').value = customer.startDate ? customer.startDate.split('T')[0] : "";
         document.getElementById('endDate').value = customer.endDate ? customer.endDate.split('T')[0] : "";
@@ -900,4 +948,54 @@ window.deleteCustomer = function(id) {
         window.renderCustomers();
         if (navigator.onLine) processSyncQueue();
     });
+}
+
+window.exportToPDF = function() {
+    let towerCustomers = allCustomersData.filter(cust => cust.towerCode === currentLoggedTowerCode);
+    if (towerCustomers.length === 0) {
+        window.showModal("لا يوجد زبائن حالياً للطباعة!", "alert");
+        return;
+    }
+    
+    let printWindow = window.open('', '_blank');
+    let html = `
+    <html dir="rtl">
+    <head>
+        <title>تصدير المشتركين والديون - ${currentLoggedTowerName}</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; direction: rtl; }
+            h2, h3 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: center; }
+            th { background-color: #ecf0f1; color: #2c3e50; }
+        </style>
+    </head>
+    <body onload="window.print();">
+        <h2>قائمة المشتركين والديون</h2>
+        <h3>البرج: ${currentLoggedTowerName}</h3>
+        <table>
+            <tr>
+                <th>اسم المشترك</th>
+                <th>الحساب (الدين)</th>
+            </tr>`;
+    
+    towerCustomers.forEach(c => {
+        let cDebts = c.debts || 0;
+        let cPaid = c.paid || 0;
+        let originalPrice = parseFloat(c.price || 0) + parseFloat(cDebts);
+        let currentDebt = Math.max(originalPrice - cPaid, 0);
+        html += `
+            <tr>
+                <td>${c.name}</td>
+                <td>${currentDebt} الف</td>
+            </tr>`;
+    });
+    
+    html += `
+        </table>
+    </body>
+    </html>`;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
 }
