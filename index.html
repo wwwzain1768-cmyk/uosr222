@@ -85,6 +85,7 @@
         <div id="addCustomerSection" style="display: none; margin-bottom: 30px; border-bottom: 2px solid #ecf0f1; padding-bottom: 20px;">
             <h2>إضافة زبون جديد للبرج</h2>
             <div class="form-group"><input type="text" id="customerName" placeholder="اسم الزبون"></div>
+            <div class="form-group"><input type="tel" id="customerPhone" placeholder="رقم هاتف الزبون (اختياري)"></div>
             <div class="form-group"><input type="number" id="customerPrice" placeholder="مبلغ الاشتراك (مثال: 50000)"></div>
             <div class="form-group"><input type="date" id="startDate" placeholder="تاريخ البدء"></div>
             <div class="form-group"><input type="date" id="endDate" placeholder="تاريخ الانتهاء"></div>
@@ -100,6 +101,7 @@
         <div class="tabs-header" style="margin: 20px 30px; border-radius: 8px; overflow: hidden; display: flex; background-color: #ecf0f1;">
             <button class="tab-btn active" onclick="switchCustomerTab('all')">جميع الزبائن</button>
             <button class="tab-btn" onclick="switchCustomerTab('expired')">المنتهي</button>
+            <button class="tab-btn" onclick="switchCustomerTab('pdf')">تصدير PDF</button>
         </div>
 
         <div id="all-customers-tab" class="customer-tab-content active">
@@ -108,6 +110,13 @@
 
         <div id="expired-customers-tab" class="customer-tab-content">
             <div id="expiredList" class="customers-list"></div>
+        </div>
+
+        <div id="pdf-customers-tab" class="customer-tab-content">
+            <div style="padding: 30px; text-align: center;">
+                <p style="margin-bottom: 20px; font-size: 1.1rem; color: #2c3e50; font-weight: bold;">سيتم تجهيز قائمة بجميع المشتركين والديون كملف للطباعة أو الحفظ كـ PDF.</p>
+                <button class="primary-btn" onclick="exportToPDF()">تصدير وحفظ PDF</button>
+            </div>
         </div>
     </div>
 
