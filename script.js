@@ -819,7 +819,11 @@ window.renewSubscription = function(id) {
                 let displayStartDate = formatDateTimeUI(customer.startDate);
                 let displayEndDate = formatDateTimeUI(customer.endDate);
                 
-                let msg = `تم تجديد الاشتراك بنجاح\nالحساب (المبلغ المضاف): ${amount} الف\nتاريخ بدء الاشتراك: ${displayStartDate}\nتاريخ انتهاء الاشتراك: ${displayEndDate}`;
+                let originalPrice = parseFloat(customer.price || 0) + parseFloat(customer.debts || 0);
+                let remaining = originalPrice - parseFloat(customer.paid || 0);
+                let currentTotalDebt = Math.max(remaining, 0);
+                
+                let msg = `تم تجديد الاشتراك بنجاح\nالحساب (المبلغ المضاف): ${amount} الف\nالمجموع الكلي ${currentTotalDebt} الف\nتاريخ بدء الاشتراك: ${displayStartDate}\nتاريخ انتهاء الاشتراك: ${displayEndDate}`;
                 
                 window.showModal("تم تجديد الاشتراك بنجاح! هل تود إرسال إشعار للزبون عبر الواتساب؟", "confirm", () => {
                     sendWhatsAppMessage(customer.phone, msg);
@@ -956,6 +960,12 @@ window.exportToPDF = function() {
         window.showModal("لا يوجد زبائن حالياً للطباعة!", "alert");
         return;
     }
+
+    let today = new Date();
+    let yyyy = today.getFullYear();
+    let mm = String(today.getMonth() + 1).padStart(2, '0');
+    let dd = String(today.getDate()).padStart(2, '0');
+    let currentDateStr = `${yyyy}/${mm}/${dd}`;
     
     let printWindow = window.open('', '_blank');
     let html = `
@@ -964,7 +974,8 @@ window.exportToPDF = function() {
         <title>تصدير المشتركين والديون - ${currentLoggedTowerName}</title>
         <style>
             body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; direction: rtl; }
-            h2, h3 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+            h2, h3, h4 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+            h4 { color: #7f8c8d; font-weight: normal; margin-top: -5px; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: center; }
             th { background-color: #ecf0f1; color: #2c3e50; }
@@ -973,6 +984,7 @@ window.exportToPDF = function() {
     <body onload="window.print();">
         <h2>قائمة المشتركين والديون</h2>
         <h3>البرج: ${currentLoggedTowerName}</h3>
+        <h4>تاريخ السحب: ${currentDateStr}</h4>
         <table>
             <tr>
                 <th>اسم المشترك</th>
